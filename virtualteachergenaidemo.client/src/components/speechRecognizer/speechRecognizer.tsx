@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@fluentui/react-button';
 import { MicRegular } from "@fluentui/react-icons";
-import { getSpeechRecognizerAsync } from '../../services/SpeechService';
+import { getSpeechRecognizerAsync } from '../../services/speechService';
 import './speechRecognizer.css';
 
 interface SpeechRecognizerProps {

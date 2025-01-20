@@ -24,7 +24,7 @@ import { getHubConnection } from '../../services/signalR';
 import { ChatHistoryRequest, ChatMessage, AuthorRole } from '../../models/ChatHistoryRequest';
 import { DeleteMessageRequest } from '../../models/Request/DeleteMessageRequest';
 import { DeleteSessionRequest } from '../../models/Request/DeleteSessionRequest';
-import { textToSpeechAsync, cancelSpeech } from '../../services/SpeechService';
+import { textToSpeechAsync, cancelSpeech } from '../../services/speechService';
 import { v4 as uuidv4 } from 'uuid';
 import { TypingIndicator } from './TypingIndicator';
 import { useLocalization } from '../../contexts/LocalizationContext';
