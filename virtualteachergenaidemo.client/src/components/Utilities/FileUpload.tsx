@@ -8,7 +8,7 @@ import { makeStyles } from '@fluentui/react-components';
 import { v4 as uuidv4 } from 'uuid';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { uploadChunk, deleteFileFromServer } from '../../services/FileService';
-import { getHubConnection } from '../../services/signalR';
+import { getHubConnection } from '../../services/SignalR';
 
 interface FileUploadProps {
     agentId: string | undefined;

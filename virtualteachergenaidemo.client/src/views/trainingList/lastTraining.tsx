@@ -13,7 +13,7 @@ import { SessionItem } from '../../models/SessionItem';
 import { makeStyles } from '@fluentui/react-components';
 import { NotepadRegular, BoxRegular, TagRegular, BotFilled } from '@fluentui/react-icons';
 import { HubConnection } from '@microsoft/signalr';
-import { getHubConnection } from '../../services/signalR';
+import { getHubConnection } from '../../services/SignalR';
 
 const useStyles = makeStyles({
     customPreview: {

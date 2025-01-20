@@ -20,7 +20,7 @@ import SpeechRecognizer from '../speechRecognizer/speechRecognizer';
 import { HubConnection } from '@microsoft/signalr';
 import { useUsername } from '../../auth/UserContext';
 import { getMessages, sendMessage, deleteMessage, saveSession, deleteSession as deleteSessionService } from '../../services/ChatService';
-import { getHubConnection } from '../../services/signalR';
+import { getHubConnection } from '../../services/SignalR';
 import { ChatHistoryRequest, ChatMessage, AuthorRole } from '../../models/ChatHistoryRequest';
 import { DeleteMessageRequest } from '../../models/Request/DeleteMessageRequest';
 import { DeleteSessionRequest } from '../../models/Request/DeleteSessionRequest';
