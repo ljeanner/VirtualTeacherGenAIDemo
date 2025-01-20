@@ -13,6 +13,7 @@ import { tokens } from '@fluentui/tokens';
 import { useUserRole } from '../../auth/UserRoleContext';
 import { UserRoleEnum } from '../../models/UserRoleEnum';
 import { useLocalization } from '../../contexts/LocalizationContext';
+import { ScenarioService } from '../../services/ScenarioService';
 
 
 interface ScenarioListProps {
@@ -82,6 +83,7 @@ const useStyles = makeStyles({
     },
     editButton: {
         marginLeft: 'auto',
+        zIndex: 1,
     },
     headerText: {
         fontSize: '20px',
@@ -113,28 +115,26 @@ const ScenarioList: React.FC<ScenarioListProps> = ({ onScenarioStart }) => {
     const [scenarios, setScenarios] = useState<ScenarioItem[]>([]);
     const [selectedScenario, setSelectedScenario] = useState<ScenarioItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);    
     const { getTranslation } = useLocalization();
 
     useEffect(() => {
-        // Fetch scenarios from an API or data source
-        fetch('/api/scenario')
-            .then(response => response.json())
-            .then(data => {
-                setScenarios(data);
+        ScenarioService.getAllScenarios()
+            .then(response => {
+                setScenarios(response.data);
                 setIsLoading(false);
             })
             .catch(error => {
                 console.error('Error fetching scenarios:', error);
                 setIsLoading(false);
             });
-
     }, []);
 
     const handleStartClick = async (scenario: ScenarioItem) => {
         try {
             setIsLoading(true);
             setSelectedScenario(scenario);
+
             if (onScenarioStart) {
                 onScenarioStart(scenario);
             }
@@ -187,15 +187,15 @@ const ScenarioList: React.FC<ScenarioListProps> = ({ onScenarioStart }) => {
             {!isLoading && (
                 <div className="scenario-cards-grid">
                     {role === UserRoleEnum.Admin && (
-                    <Button className={classes.buttonWithIcon} onClick={handleAddScenario}>
-                        <AddCircleRegular className={classes.buttonIcon} />
-                            {getTranslation("NewScenario") }
+                        <Button className={classes.buttonWithIcon} onClick={handleAddScenario}>
+                            <AddCircleRegular className={classes.buttonIcon} />
+                            {getTranslation("NewScenario")}
                         </Button>
                     )}
                     {scenarios.map(scenario => (
                         <Card key={scenario.id} className={`${role === UserRoleEnum.Admin ? classes.customCard : classes.customCardSmall} card`}>
                             <CardHeader
-                                header={<Title2 className={classes.headerText}>{scenario.name}</Title2>} 
+                                header={<Title2 className={classes.headerText}>{scenario.name}</Title2>}
                             />
                             <CardPreview className={classes.customPreview}>
                                 <div className={classes.iconGrid}>
@@ -226,14 +226,14 @@ const ScenarioList: React.FC<ScenarioListProps> = ({ onScenarioStart }) => {
                                         icon={<EditRegular />}
                                         className={classes.editButton}
                                         onClick={() => handleEditScenario(scenario)}>
-                                        { getTranslation("Edit") }
+                                        {getTranslation("Edit")}
                                     </Button>
                                 )}
                                 <Button
                                     appearance='primary'
                                     icon={<PlayRegular />}
                                     onClick={() => handleStartClick(scenario)}
-                                    disabled={!areAllAgentsSet(scenario)}>{getTranslation("Start") }
+                                    disabled={!areAllAgentsSet(scenario)}>{getTranslation("Start")}
                                 </Button>
                             </CardFooter>
                         </Card>

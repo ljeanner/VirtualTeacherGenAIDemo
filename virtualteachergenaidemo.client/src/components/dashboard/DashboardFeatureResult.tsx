@@ -4,79 +4,90 @@ import { Skeleton2Rows } from '../../components/Utilities/skeleton2rows';
 import MarkdownRenderer from '../Utilities/markdownRenderer';
 import { HubConnection } from '@microsoft/signalr';
 import { Button } from '@fluentui/react-button';
-import { DialogPrompt } from '../Utilities/DialogPrompt';
+import { ArrowSyncFilled } from '@fluentui/react-icons';
 import DashboardService from '../../services/DashboardService';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { DashboardRequest } from '../../models/Request/DashboardRequest';
+import { makeStyles } from '@fluentui/react-components';
 
 interface DashboardFeatureResultProps {
-    sessionId:string
     data: any;
     infoType: string;
     loading: boolean;
     connection: HubConnection | null;
-    conversation: string;
+    sessionId: string;
     userName: string;
+    conversation: string;
 }
-
-
-const DashboardFeatureResult: React.FC<DashboardFeatureResultProps> = ({ sessionId, data, infoType, loading, conversation, connection, userName }) => {
+const useStyles = makeStyles({
+    button: {
+        border: 'none',        
+        position: 'absolute',
+        top: '8px',
+        right: '8px'        
+    },
+    container: {
+        position: 'relative'
+    }
+});
+const DashboardFeatureResult: React.FC<DashboardFeatureResultProps> = ({ data, infoType, loading, connection, sessionId, userName, conversation }) => {
     const [content, setContent] = useState(data?.content || '');
     const [isLoading, setIsLoading] = useState(loading);
-
+    const { getTranslation } = useLocalization();
+    const styles = useStyles();
 
     useEffect(() => {
-
         if (connection) {
-            
-            connection.on(infoType, (updatedData: any) => {
-                setIsLoading(false);
-                
-                setContent(updatedData.content);
-            });
+            setupConnectionHandlers(connection);
 
             return () => {
-                connection.off(infoType);
+                removeConnectionHandlers(connection);
             };
+        } else {
+            console.log('Connection not found');
         }
-        else { console.log('Connection not found') }
     }, [connection]);
 
-    const callApiForFeature = async (feature: string, item: any) => {
+    const removeConnectionHandlers = (connection: HubConnection) => {
+        connection.off(infoType);
+    };
+
+    const setupConnectionHandlers = (connection: HubConnection) => {
+        removeConnectionHandlers(connection);
+
+        connection.on(infoType, (updatedData: any) => {
+            setIsLoading(false);
+            setContent(updatedData.content);
+        });
+    };
+
+    const handleRefreshClick = async () => {
         setIsLoading(true);
         try {
-            const body = {
-                id: item == undefined ? "" : item.id,
+            const body: DashboardRequest = {
                 sessionId: sessionId,
+                id: infoType,
                 conversation: conversation,
-                connectionId: connection?.connectionId,
-                title: feature,
-                prompt: feature
+                connectionId: connection?.connectionId || '',
+                title: '' // Add the actual title if needed
             };
-            console.log(`Calling API for ${feature} with body:`, body);
-            const response = await DashboardService.postFeature(feature, sessionId, userName, body);
-            if (!response) {
-                console.error(`Failed to call API for ${feature}`);
-                setContent('Failed to generate content');
-                setIsLoading(false);
-                return;
-            }
+            const updatedData = await DashboardService.postFeature(infoType, sessionId, userName, body, true);
+            setContent(updatedData.content);            
         } catch (error) {
-            console.error(`Error calling API for ${feature}:`, error);
-            setContent('Failed to generate content');
+            console.error('Error refreshing data:', error);
             setIsLoading(false);
-        } finally {
-            // Any final cleanup if necessary
         }
     };
 
     return (
         <div role="tabpanel" aria-labelledby={infoType} className="tabpanel">
-            <Button onClick={() => callApiForFeature(infoType,data)}>Generate {infoType}</Button>
-            <DialogPrompt title={infoType} />
-            <section className="frame">
+            <section className={`frame ${styles.container}`}>
                 <span id={infoType}>
+                    <Button
+                        icon={<ArrowSyncFilled style={{ fontSize: '16px' }} />} 
+                        onClick={handleRefreshClick} className={styles.button} />
                     {isLoading ? <Skeleton2Rows /> :
-                        content ? <MarkdownRenderer markdown={content} /> : <span>No Generate Yet</span>
-                            
+                        content ? <MarkdownRenderer markdown={content} /> : <span>{getTranslation("NoGenerateYet")}</span>
                     }
                 </span>
             </section>
@@ -84,4 +95,4 @@ const DashboardFeatureResult: React.FC<DashboardFeatureResultProps> = ({ session
     );
 };
 
-export { DashboardFeatureResult }
+export { DashboardFeatureResult };

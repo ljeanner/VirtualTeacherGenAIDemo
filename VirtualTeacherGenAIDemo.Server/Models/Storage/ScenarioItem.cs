@@ -34,8 +34,13 @@ namespace VirtualTeacherGenAIDemo.Server.Models.Storage
         [Required, NotEmptyOrWhitespace]
         public string Prompt { get; set; } = string.Empty;
 
+        [JsonIgnore]
+        public bool WithFileForSearch { get; set; } = false;
+
         [Required, NotEmptyOrWhitespace]
         public string Type { get; set; } = string.Empty;
+
+        public List<PromptDashboardFeature> features { get; set; } = new List<PromptDashboardFeature>();
 
 
     }

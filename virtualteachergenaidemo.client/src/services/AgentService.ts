@@ -15,12 +15,18 @@ export const AgentService = {
     getAgentsByType: (type: string) => {
         return apiClient.get<AgentItem[]>(`/agent/ByType?type=${type}`);
     },
-    upsertAgent: (agent: AgentItem) => {
-        const apiUrl = agent.id ? `/agent/${agent.id}` : '/agent';
-        const method = agent.id ? 'put' : 'post';
+    upsertAgent: (agent: AgentItem, isUpdate: boolean) => {
+        const apiUrl = isUpdate ? `/agent/${agent.id}` : '/agent';
+        const method = isUpdate ? 'put' : 'post';
         return apiClient[method](apiUrl, agent);
+    },
+    cloneAgent(agent: AgentItem) {
+        return axios.post('/api/agent/clone', agent);
     },
     deleteAgent: (agentId: string, type: string) => {
         return apiClient.delete(`/agent/${agentId}?type=${type}`);
+    },
+    hasFiles: (agentId: string) => {
+        return apiClient.get<boolean>(`/agent/HasFiles/${agentId}`);
     },
 };

@@ -6,14 +6,14 @@ import { Textarea } from '@fluentui/react-textarea';
 import { Field } from '@fluentui/react-field';
 import { useState, useEffect } from 'react';
 import { AgentItem } from '../../models/AgentItem';
-import { makeStyles } from '@fluentui/react-components';
+import { makeStyles, Tab, TabList } from '@fluentui/react-components';
 import { tokens } from '@fluentui/tokens';
 import { FileUpload } from '../Utilities/FileUpload';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { AgentService } from '../../services/AgentService';
-import { v4 as uuidv4 } from 'uuid'; 
+import { v4 as uuidv4 } from 'uuid';
 import { useRef } from 'react';
-
+import { Spinner } from '@fluentui/react';
 
 interface AgentDialogProps {
     onAddAgent: (agent: AgentItem) => void;
@@ -35,11 +35,23 @@ const useStyles = makeStyles({
     fileListColumn: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '10x', 
+        gap: '10x',
     },
     tag: {
         width: '100%',
-        display: 'block', 
+        display: 'block',
+    },
+    spinnerOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
     },
 });
 
@@ -54,6 +66,14 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
     const [isOpen, setIsOpen] = useState<boolean>(true);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
     const [fileNames, setFileNames] = useState<string[]>(agent?.fileNames || []);
+    const [features, setFeatures] = useState<{ feature: string, prompt: string }[]>(agent?.features || [
+        { feature: 'summary', prompt: '' },
+        { feature: 'products', prompt: '' },
+        { feature: 'keywords', prompt: '' },
+        { feature: 'advice', prompt: '' }
+    ]); // Add this state
+    const [selectedTab, setSelectedTab] = useState('summary'); // Add this state
+    const [isProcessing, setIsProcessing] = useState<boolean>(false); // Add this state
     const { getTranslation } = useLocalization();
 
     const agentIdRef = useRef(agent?.id || uuidv4());
@@ -65,6 +85,12 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
             setDescription(agent.description);
             setPrompt(agent.prompt);
             setFileNames(agent.fileNames || []);
+            setFeatures(agent.features || [
+                { feature: 'summary', prompt: '' },
+                { feature: 'products', prompt: '' },
+                { feature: 'keywords', prompt: '' },
+                { feature: 'advice', prompt: '' }
+            ]); // Add this line
         }
     }, [agent]);
 
@@ -75,6 +101,12 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
             }
             return prevFileNames;
         });
+    };
+
+    const handleFeatureChange = (feature: string, prompt: string) => {
+        setFeatures(prevFeatures => prevFeatures.map(f =>
+            f.feature === feature ? { ...f, prompt } : f
+        ));
     };
 
     const handleUpsertAgent = () => {
@@ -108,15 +140,15 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
             prompt,
             type,
             id: agentId,
-            fileNames
+            fileNames,
+            features: type === 'teacher' ? features : [] 
         };
 
-        AgentService.upsertAgent(newAgent)
+        const isUpdate = !!agent;
+
+        AgentService.upsertAgent(newAgent, isUpdate)
             .then(response => {
-                const data = response.data;                
-                //if (!agent) {
-                //    newAgent.id = data.id;
-                //}
+                const data = response.data;
                 onAddAgent(newAgent);
             })
             .catch(error => console.error('Error:', error));
@@ -125,9 +157,26 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
         onClose();
     };
 
+    const handleCloneAgent = () => {
+        if (!agent) return;
+        setIsProcessing(true); // Set processing state to true
+        agent.name = `${agent.name} (clone)`;
+        AgentService.cloneAgent(agent)
+            .then(response => {
+                const data = response.data;
+                onAddAgent(data);
+            })
+            .catch(error => console.error('Error:', error))
+            .finally(() => {
+                setIsProcessing(false); // Set processing state to false
+                setIsOpen(false);
+                onClose();
+            });
+    };
+
     const handleDeleteAgent = () => {
         if (!agent) return;
-
+        setIsProcessing(true); // Set processing state to true
         AgentService.deleteAgent(agent.id, agent.type)
             .then(response => {
                 if (response.status === 204) {
@@ -138,10 +187,12 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
                     console.error('Failed to delete agent');
                 }
             })
-            .catch(error => console.error('Error:', error));
-
-        setIsDeleteConfirmOpen(false);
-        setIsOpen(false);
+            .catch(error => console.error('Error:', error))
+            .finally(() => {
+                setIsProcessing(false); // Set processing state to false
+                setIsDeleteConfirmOpen(false);
+                setIsOpen(false);
+            });
     };
 
     const handleOpenChange = (_event: any, data: { open: boolean }) => {
@@ -151,11 +202,16 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
         }
     };
 
+    const handleTabSelect = (_event: any, data: any) => {
+        setSelectedTab(data.value);
+    };
+
     return (
         <>
             <Dialog open={isOpen} onOpenChange={handleOpenChange}>
                 <DialogSurface>
                     <DialogBody>
+                        {isProcessing && <div className={styles.spinnerOverlay}><Spinner label={getTranslation("Processing")} /></div>} {/* Add this line */}
                         <DialogTitle>{agent ? getTranslation("EditAgentButton") : getTranslation("AddAgentButton")}</DialogTitle>
                         <DialogContent>
                             <div className="formcard">
@@ -190,15 +246,76 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
                                 <label>{getTranslation("KnowledgeLabel")}</label>
 
                                 <FileUpload agentId={agentId} initialFileNames={fileNames} type={type} onFileUpload={handleFileUpload} />
-
                             </div>
+
+                            {type === 'teacher' && (
+                                <div className="formcard">
+                                    <TabList selectedValue={selectedTab} onTabSelect={handleTabSelect}>
+                                        <Tab value="summary">{getTranslation("SummaryTab")}</Tab>
+                                        <Tab value="products">{getTranslation("ProductsTab")}</Tab>
+                                        <Tab value="keywords">{getTranslation("KeywordsTab")}</Tab>
+                                        <Tab value="advice">{getTranslation("AdviceTab")}</Tab>
+                                    </TabList>
+                                    {selectedTab === 'summary' && (
+                                        <Field>
+                                            <Textarea
+                                                placeholder={getTranslation("SummaryPlaceholder")}
+                                                value={features.find(f => f.feature === 'summary')?.prompt || ''}
+                                                rows={10}
+                                                onChange={(e) => handleFeatureChange('summary', e.target.value)}
+                                            />
+                                        </Field>
+                                    )}
+                                    {selectedTab === 'products' && (
+                                        <Field>
+                                            <Textarea
+                                                placeholder={getTranslation("ProductsPlaceholder")}
+                                                value={features.find(f => f.feature === 'products')?.prompt || ''}
+                                                rows={10}
+                                                onChange={(e) => handleFeatureChange('products', e.target.value)}
+                                            />
+                                        </Field>
+                                    )}
+                                    {selectedTab === 'keywords' && (
+                                        <Field>
+                                            <Textarea
+                                                placeholder={getTranslation("KeywordsPlaceholder")}
+                                                value={features.find(f => f.feature === 'keywords')?.prompt || ''}
+                                                rows={10}
+                                                onChange={(e) => handleFeatureChange('keywords', e.target.value)}
+                                            />
+                                        </Field>
+                                    )}
+                                    {selectedTab === 'advice' && (
+                                        <Field>
+                                            <Textarea
+                                                placeholder={getTranslation("AdvicePlaceholder")}
+                                                value={features.find(f => f.feature === 'advice')?.prompt || ''}
+                                                rows={10}
+                                                onChange={(e) => handleFeatureChange('advice', e.target.value)}
+                                            />
+                                        </Field>
+                                    )}
+                                </div>
+                            )}
                         </DialogContent>
                         <DialogActions>
                             {agent && (
-                                <Button className={styles.deleteButton} onClick={() => setIsDeleteConfirmOpen(true)}>{ getTranslation("DeleteButton") }</Button>
+                                <Button className={styles.deleteButton} onClick={() => setIsDeleteConfirmOpen(true)} disabled={isProcessing}>
+                                    {getTranslation("DeleteButton")}
+                                </Button>
                             )}
-                            <Button appearance="primary" onClick={handleUpsertAgent}>{agent ? getTranslation("SaveButton") : getTranslation("AddButton")}</Button>
-                            <Button appearance="secondary" onClick={() => { setIsOpen(false); onClose(); }}>{ getTranslation("CancelButton") }</Button>
+                            {agent && (
+                                <Button appearance="secondary" onClick={handleCloneAgent} disabled={isProcessing}>
+                                    {getTranslation("CloneButton")}
+                                </Button>
+                            )}
+                            <Button appearance="primary" onClick={handleUpsertAgent} disabled={isProcessing}>
+                                {agent ? getTranslation("SaveButton") : getTranslation("AddButton")}
+                            </Button>
+                            <Button appearance="secondary" onClick={() => { setIsOpen(false); onClose(); }} disabled={isProcessing}>
+                                {getTranslation("CancelButton")}
+                            </Button>
                         </DialogActions>
                     </DialogBody>
                 </DialogSurface>
@@ -207,13 +324,18 @@ export const AgentDialog = ({ onAddAgent, onDeleteAgent, type, onClose, agent }:
             <Dialog open={isDeleteConfirmOpen} onOpenChange={(_event, data) => setIsDeleteConfirmOpen(data.open)}>
                 <DialogSurface>
                     <DialogBody>
-                        <DialogTitle>{ getTranslation("DeleteAskTitle") }</DialogTitle>
+                        {isProcessing && <div className={styles.spinnerOverlay}><Spinner label={getTranslation("Processing")} /></div>} {/* Add this line */}
+                        <DialogTitle>{getTranslation("DeleteAskTitle")}</DialogTitle>
                         <DialogContent>
-                            <p>{ getTranslation("DeleteAgentAskMessage") }</p>
+                            <p>{getTranslation("DeleteAgentAskMessage")}</p>
                         </DialogContent>
                         <DialogActions>
-                            <Button className={styles.deleteButton} onClick={handleDeleteAgent}>{ getTranslation("DeleteButton") }</Button>
-                            <Button appearance="secondary" onClick={() => setIsDeleteConfirmOpen(false)}>{ getTranslation("CancelButton") }</Button>
+                            <Button className={styles.deleteButton} onClick={handleDeleteAgent} disabled={isProcessing}>
+                                {getTranslation("DeleteButton")}
+                            </Button>
+                            <Button appearance="secondary" onClick={() => setIsDeleteConfirmOpen(false)} disabled={isProcessing}>
+                                {getTranslation("CancelButton")}
+                            </Button>
                         </DialogActions>
                     </DialogBody>
                 </DialogSurface>

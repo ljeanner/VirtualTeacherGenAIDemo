@@ -11,6 +11,8 @@ namespace VirtualTeacherGenAIDemo.Server.Models.Storage
 
         public DateTimeOffset Timestamp { get; set; }
 
+        
+
         public string Id { get; set; } = string.Empty;
 
         [Required, NotEmptyOrWhitespace]
@@ -19,8 +21,10 @@ namespace VirtualTeacherGenAIDemo.Server.Models.Storage
         [JsonIgnore]
         public string Partition => this.UserId;
         
-        [Required]
+        [Required]        
         public bool IsCompleted { get; set; } = false;
+
+        public DateTimeOffset CompletedTimestamp { get; set; }
 
         [Required, NotEmptyOrWhitespace]
         public string ScenarioName { get; set; } = string.Empty;
@@ -35,16 +39,23 @@ namespace VirtualTeacherGenAIDemo.Server.Models.Storage
 
     public class SessionAgent
     {
-        
-
         [Required, NotEmptyOrWhitespace]
         public string Prompt { get; set; } = string.Empty;
 
         [Required, NotEmptyOrWhitespace]
         public string Type { get; set; } = string.Empty;
 
+
+        [Required, NotEmptyOrWhitespace]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonIgnore]
+        public bool WithFileForSearch { get; set; } = false;
+
         [Required, NotEmptyOrWhitespace]
         public string Id { get; set; } = string.Empty;
+
+        public List<PromptDashboardFeature> features { get; set; } = new List<PromptDashboardFeature>();
 
     }
 }

@@ -9,8 +9,9 @@ import { AddCircleRegular, PeopleCommunityFilled, PlayRegular } from '@fluentui/
 import { tokens } from '@fluentui/tokens';
 import { useNavigate } from 'react-router-dom';
 import { SessionItem } from '../../models/SessionItem';
-import { useUsername } from '../../auth/UserContext'; 
+import { useUsername } from '../../auth/UserContext';
 import { useLocalization } from '../../contexts/LocalizationContext';
+import { SessionService } from '../../services/SessionService';
 
 interface SessionListProps {
     onSessionStart: (session: SessionItem) => void;
@@ -18,11 +19,14 @@ interface SessionListProps {
 
 const useStyles = makeStyles({
     customPreview: {
-        padding: '10px',
+        paddingLeft: '10px',
     },
     customCard: {
         minWidth: '400px',
         maxWidth: '300px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
     },
     iconGrid: {
         display: 'grid',
@@ -69,6 +73,14 @@ const useStyles = makeStyles({
     },
     resumeButton: {
         marginLeft: 'auto',
+        zIndex: 1, // Ensure the button is above other elements
+    },
+    cardFooter: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'flex-end',
+        marginTop: 'auto',
+        position: 'relative', // Ensure z-index works
     },
 });
 
@@ -76,41 +88,38 @@ const SessionList: React.FC<SessionListProps> = ({ onSessionStart }) => {
     const navigate = useNavigate();
     const classes = useStyles();
     const userName = useUsername();
-    const [sessions, setSessions] = useState<SessionItem[]>([]);    
+    const [sessions, setSessions] = useState<SessionItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { getTranslation } = useLocalization();
 
     useEffect(() => {
-        // Fetch incomplete sessions from the backend using fetch
-        fetch(`/api/Session/NotCompleted/${userName}`)
-            .then(response => response.json())
-            .then(data => {
-                const parsedData = data.map((session: any) => ({
+        SessionService.getIncompleteSessions(userName)
+            .then(response => {
+                const parsedData = response.data.map((session: any) => ({
                     ...session,
                     timestamp: new Date(session.timestamp)
                 }));
                 setSessions(parsedData);
                 setIsLoading(false);
             })
-            .catch(error => {                
+            .catch(error => {
+                console.error('Error fetching sessions:', error);
                 setIsLoading(false);
             });
-    }, []);
+    }, [userName]);
 
-    const handleResume = async (session: SessionItem) => {       
-        if (onSessionStart) {            
+    const handleResume = async (session: SessionItem) => {
+        if (onSessionStart) {
             onSessionStart(session);
         }
-        
     };
 
     const handleAddSession = () => {
-        // Navigate to the scenario page
         navigate('/scenarios');
     };
 
     const formatDate = (date: Date) => {
-        return date.toLocaleDateString('en-GB'); // 'en-GB' locale formats date as dd/MM/yyyy
+        return date.toLocaleDateString('en-GB');
     };
 
     return (
@@ -120,29 +129,32 @@ const SessionList: React.FC<SessionListProps> = ({ onSessionStart }) => {
                 <div className="session-cards-grid">
                     <Button className={classes.buttonWithIcon} onClick={handleAddSession}>
                         <AddCircleRegular className={classes.buttonIcon} />
-                        { getTranslation("NewSession") }
+                        {getTranslation("NewSession")}
                     </Button>
-                    {sessions.map(session => (
-                        <Card key={session.id} className={`${classes.customCard} card`}>
-                            <CardHeader
-                                header={<Title2>{session.title}</Title2>}
-                                action={<PeopleCommunityFilled className={classes.icon} />}
-                            />
-                            <CardPreview className={classes.customPreview}>
-                                <Body2>Session details or description can go here.</Body2>
-                                <Body2>{formatDate(session.timestamp!)}</Body2>
-                            </CardPreview>
-                            <CardFooter>
-                                <Button
-                                    appearance='primary'
-                                    className={classes.resumeButton}
-                                    icon={<PlayRegular />}
-                                    onClick={() => handleResume(session)}>
-                                    {getTranslation("Resume") }
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    ))}
+                    {sessions.map(session => {
+                        const rolePlayAgent = session.agents.find(agent => agent.type === 'rolePlay');
+                        return (
+                            <Card key={session.id} className={`${classes.customCard} card`}>
+                                <CardHeader
+                                    header={<Title2>{session.title}</Title2>}
+                                    action={<PeopleCommunityFilled className={classes.icon} />}
+                                />
+                                <CardPreview className={classes.customPreview}>
+                                    <Body2>Role: {rolePlayAgent ? rolePlayAgent.name : 'N/A'}</Body2>
+                                    <Body2>{formatDate(session.timestamp!)}</Body2>
+                                </CardPreview>
+                                <CardFooter className={classes.cardFooter}>
+                                    <Button
+                                        appearance='primary'
+                                        className={classes.resumeButton}
+                                        icon={<PlayRegular />}
+                                        onClick={() => handleResume(session)}>
+                                        {getTranslation("Resume")}
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        );
+                    })}
                 </div>
             )}
         </div>

@@ -12,10 +12,14 @@ namespace VirtualTeacherGenAIDemo.Server.Controllers
     public class AgentController : ControllerBase
     {
         private readonly AgentService _agentService;
+        private readonly DocumentService _documentService;
+        private readonly ScenarioService _scenarioService;
 
-        public AgentController(AgentService agentService)
+        public AgentController(AgentService agentService, DocumentService documentService, ScenarioService scenarioService)
         {
             _agentService = agentService;
+            _documentService = documentService;
+            _scenarioService = scenarioService;
         }
 
         [HttpGet("ByType", Name = "{type}")]
@@ -49,6 +53,19 @@ namespace VirtualTeacherGenAIDemo.Server.Controllers
             return agent;
         }
 
+        [HttpGet("HasFiles/{agentId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<bool>> HasFiles(string agentId)
+        {
+            var hasFiles = await _agentService.AgentHasFilesAsync(agentId);
+            if (!hasFiles)
+            {
+                return NotFound("Agent has no files or does not exist.");
+            }
+            return hasFiles;
+        }
+
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -59,7 +76,10 @@ namespace VirtualTeacherGenAIDemo.Server.Controllers
                 return BadRequest("Agent item is null.");
             }
 
-            agent.Id = Guid.NewGuid().ToString();
+            if (string.IsNullOrEmpty(agent.Id))
+            {
+                agent.Id = Guid.NewGuid().ToString();
+            }
             
             await _agentService.AddAgentAsync(agent);
             return CreatedAtAction(nameof(Get), new { id = agent.Id, type = agent.Type }, agent);
@@ -83,6 +103,34 @@ namespace VirtualTeacherGenAIDemo.Server.Controllers
 
             
             await _agentService.UpdateAgentAsync(agent);
+
+            //Update scenario too, for prompt changed
+            var scenarios = await _scenarioService.GetScenariosByAgentIdAsync(agent.Id);
+            foreach (var scenario in scenarios)
+            {
+                foreach (var scenarioAgent in scenario.Agents!)
+                {
+                    if (scenarioAgent.Id == agent.Id)
+                    {
+                        scenarioAgent.Prompt = agent.Prompt;
+                        scenarioAgent.Name = agent.Name;                        
+                        // If the agent is a teacher, update the features' prompt too
+                        if (agent.Type == "teacher")
+                        {
+                            foreach (var feature in scenarioAgent.features)
+                            {
+                                var matchingFeature = agent.Features.FirstOrDefault(f => f.Feature == feature.Feature);
+                                if (matchingFeature != null)
+                                {
+                                    feature.Prompt = matchingFeature.Prompt;
+                                }
+                            }
+                        }
+                    }
+                }
+                await _scenarioService.UpdateAsync(scenario);
+            }
+
             return NoContent();
         }
 
@@ -106,6 +154,20 @@ namespace VirtualTeacherGenAIDemo.Server.Controllers
             return NoContent();
         }
 
+        [HttpPost("Clone")]
+        public async Task<IActionResult> Clone([FromBody] AgentItem originalAgent)
+        {
+            if (originalAgent == null)
+            {
+                return BadRequest("Original agent is null.");
+            }
+
+            var newAgent = await _agentService.CloneAgentAsync(originalAgent);
+            await _documentService.UpdateDocumentsWithNewAgentIdAsync(originalAgent.Id, newAgent.Id);
+
+            return CreatedAtAction(nameof(Get), new { id = newAgent.Id, type = newAgent.Type }, newAgent);
+        }
+
         private async Task HandleFileUpload(IFormFile file)
         {
             if (file != null && file.Length > 0)
@@ -117,5 +179,7 @@ namespace VirtualTeacherGenAIDemo.Server.Controllers
                 }
             }
         }
+
+      
     }
 }
