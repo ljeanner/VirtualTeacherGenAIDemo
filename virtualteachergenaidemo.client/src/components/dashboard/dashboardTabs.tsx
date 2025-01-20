@@ -6,7 +6,7 @@ import { HubConnection } from '@microsoft/signalr';
 import { DashboardFeatureResult } from './DashboardFeatureResult';
 import DashboardService from '../../services/DashboardService';
 import { useLocalization } from '../../contexts/LocalizationContext'; // Import useLocalization
-import { getHubConnection } from '../../services/SignalR';
+import { getHubConnection } from '../../services/signalR';
 
 interface DashboardTabsProps {
     sessionId: string;
